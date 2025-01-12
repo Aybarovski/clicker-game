@@ -1,36 +1,37 @@
 // Vuex "game" module
 // Achievement condition checkers
 const achievementConditions = {
-  reach100: (state) => state.stimulation >= 100,
-  reach1000: (state) => state.stimulation >= 1000,
-  reach10000: (state) => state.stimulation >= 10000,
-  clicks100: (state) => state.totalClicks >= 100,
-  upgrader: (state) => state.upgrades.filter(u => u.owned).length >= 3
+  tinyFish: (state) => state.planktonPoints >= 100,
+  reefRuler: (state) => state.upgrades.filter(u => u.type === 'reef' && u.owned).length >= 2,
+  humpbackHero: (state) => state.planktonPoints >= 1000000,
+  whaleWatcher: (state) => state.currentEvolution >= 5,
+  oceanCleaner: (state) => state.totalClicks >= 1000
 }
 
 export const state = () => ({
-  stimulation: 0,
+  planktonPoints: 0,
   clickValue: 1,
-  autoClickPower: 0,
+  autoSwimPower: 0,
   totalClicks: 0,
+  currentEvolution: 1, // 1: Plankton, 2: Small Fish, 3: Medium Fish, 4: Large Fish, 5: Whale
   boostActive: false,
   boostMultiplier: 1,
   boostEndTime: 0,
   boostCooldownEndTime: 0,
   boosts: [
     {
-      id: 'boost2x',
-      name: 'Double Power',
-      description: 'Double your click and auto-click power for 30 seconds',
+      id: 'schoolBoost',
+      name: 'School of Fish',
+      description: 'Join a school of fish to double your gathering power for 30 seconds',
       cost: 150,
       multiplier: 2,
       duration: 30000,
       cooldown: 60000
     },
     {
-      id: 'boost3x',
-      name: 'Triple Power',
-      description: 'Triple your click and auto-click power for 15 seconds',
+      id: 'feedingFrenzy',
+      name: 'Feeding Frenzy',
+      description: 'Triple your gathering power in a feeding frenzy for 15 seconds',
       cost: 300,
       multiplier: 3,
       duration: 15000,
@@ -40,90 +41,147 @@ export const state = () => ({
   achievementsUnlocked: [],
   achievements: [
     {
-      id: 'reach100',
-      name: 'Getting Started',
-      description: 'Reach 100 stimulation',
+      id: 'tinyFish',
+      name: 'Nemo\'s Cousin',
+      description: 'Reach 100 plankton points',
       unlocked: false,
-      reward: 50
+      reward: 50,
+      fact: 'Clownfish can live in anemones without getting stung!'
     },
     {
-      id: 'reach1000',
-      name: 'Stimulation Master',
-      description: 'Reach 1,000 stimulation',
+      id: 'reefRuler',
+      name: 'Reef Ruler',
+      description: 'Own 2 different reef upgrades',
       unlocked: false,
-      reward: 200
+      reward: 200,
+      fact: 'Coral reefs support 25% of all marine life!'
     },
     {
-      id: 'reach10000',
-      name: 'Stimulation God',
-      description: 'Reach 10,000 stimulation',
+      id: 'humpbackHero',
+      name: 'Humpback Hero',
+      description: 'Reach 1,000,000 plankton points',
       unlocked: false,
-      reward: 1000
+      reward: 1000,
+      fact: 'Humpback whales can sing for hours underwater!'
     },
     {
-      id: 'clicks100',
-      name: 'Dedicated Clicker',
-      description: 'Click 100 times',
+      id: 'whaleWatcher',
+      name: 'Whale Watcher',
+      description: 'Reach the final whale evolution',
       unlocked: false,
-      reward: 100
+      reward: 2000,
+      fact: 'Blue whales are the largest animals to ever exist on Earth!'
     },
     {
-      id: 'upgrader',
-      name: 'Upgrade Enthusiast',
-      description: 'Own 3 different upgrades',
+      id: 'oceanCleaner',
+      name: 'Ocean Guardian',
+      description: 'Click 1,000 times to clean the ocean',
       unlocked: false,
-      reward: 150
+      reward: 500,
+      fact: 'Every piece of plastic ever made still exists somewhere in our oceans.'
     }
   ],
   upgrades: [
+    // Basic Tier (Plankton Stage)
     {
-      id: 'autoclick1',
-      name: 'Auto-Clicker I',
+      id: 'biggerMouth1',
+      name: 'Tiny Mouth Upgrade',
+      description: 'Grow a slightly bigger mouth to catch more plankton per click',
       cost: 50,
       owned: false,
-      type: 'auto',
-      power: 1
+      type: 'multiplier',
+      power: 2,
+      unlockAt: 0,
+      tier: 1,
+      evolutionRequired: 1,
+      fact: 'Even tiny plankton have specialized feeding structures!'
     },
     {
-      id: 'autoclick2',
-      name: 'Auto-Clicker II',
-      cost: 200,
-      owned: false,
-      type: 'auto',
-      power: 2
-    },
-    {
-      id: 'multi1',
-      name: 'Double Click Value',
+      id: 'autoSwim1',
+      name: 'Auto-Swimmer I',
+      description: 'Develop better fins to automatically gather plankton',
       cost: 100,
       owned: false,
-      type: 'multiplier',
-      power: 2
+      type: 'auto',
+      power: 1,
+      unlockAt: 0,
+      tier: 1,
+      evolutionRequired: 1,
+      fact: 'Fish never stop swimming, even when they sleep!'
+    },
+    // Advanced Tier (Small Fish Stage)
+    {
+      id: 'coralReef1',
+      name: 'Coral Home',
+      description: 'Establish a home in a coral reef for passive plankton generation',
+      cost: 200,
+      owned: false,
+      type: 'reef',
+      power: 2,
+      unlockAt: 500,
+      tier: 2,
+      evolutionRequired: 2,
+      fact: 'Coral reefs grow just 0.3 to 2 centimeters per year!'
     },
     {
-      id: 'multi2',
-      name: 'Triple Click Value',
+      id: 'schoolFish1',
+      name: 'Small School',
+      description: 'Join a small school of fish to increase gathering power',
       cost: 300,
       owned: false,
       type: 'multiplier',
-      power: 3
+      power: 3,
+      unlockAt: 500,
+      tier: 2,
+      evolutionRequired: 2,
+      fact: 'Fish in schools can react to danger in under 0.15 seconds!'
+    },
+    // Elite Tier (Large Fish Stage)
+    {
+      id: 'deepDive1',
+      name: 'Deep Sea Explorer',
+      description: 'Venture into deeper waters for rare plankton species',
+      cost: 1000,
+      owned: false,
+      type: 'auto',
+      power: 5,
+      unlockAt: 2000,
+      tier: 3,
+      evolutionRequired: 3,
+      fact: 'The deep sea begins at 200 meters below the surface!'
+    },
+    {
+      id: 'whaleMode',
+      name: 'Whale Evolution',
+      description: 'Evolve into a majestic whale for massive plankton gathering',
+      cost: 1500,
+      owned: false,
+      type: 'multiplier',
+      power: 5,
+      unlockAt: 2000,
+      tier: 3,
+      evolutionRequired: 3,
+      fact: 'Whales can consume up to 6 tons of krill per day!'
     }
   ]
 })
 
 export const mutations = {
-  INCREMENT_STIMULATION(state, amount) {
+  INCREMENT_PLANKTON(state, amount) {
     const multipliedAmount = state.boostActive ? amount * state.boostMultiplier : amount
-    state.stimulation += multipliedAmount
+    state.planktonPoints += multipliedAmount
   },
   SET_CLICK_VALUE(state, newValue) {
     state.clickValue = newValue
   },
-  SET_AUTOCLICK_POWER(state, power) {
-    state.autoClickPower += power
+  SET_AUTOSWIM_POWER(state, power) {
+    state.autoSwimPower += power
   },
   INCREMENT_TOTAL_CLICKS(state) {
     state.totalClicks++
+  },
+  EVOLVE(state, level) {
+    state.currentEvolution = level
   },
   BUY_UPGRADE(state, upgradeId) {
     const upgrade = state.upgrades.find(u => u.id === upgradeId)
@@ -136,8 +194,7 @@ export const mutations = {
     if (achievement && !achievement.unlocked) {
       achievement.unlocked = true
       state.achievementsUnlocked.push(id)
-      state.stimulation += achievement.reward
-      // Emit a custom event when achievement is unlocked
+      state.planktonPoints += achievement.reward
       if (window) {
         window.dispatchEvent(new CustomEvent('achievementUnlocked', { 
           detail: { achievement }
@@ -159,36 +216,57 @@ export const mutations = {
 
 export const actions = {
   increment({ commit, state, dispatch }) {
-    commit('INCREMENT_STIMULATION', state.clickValue)
+    commit('INCREMENT_PLANKTON', state.clickValue)
     commit('INCREMENT_TOTAL_CLICKS')
+    dispatch('checkEvolution')
     dispatch('checkAchievements')
     dispatch('checkBoostEnd')
   },
 
   buyUpgrade({ commit, state, dispatch }, upgradeId) {
     const upgrade = state.upgrades.find(u => u.id === upgradeId)
-    if (upgrade && !upgrade.owned && state.stimulation >= upgrade.cost) {
-      commit('INCREMENT_STIMULATION', -upgrade.cost)
+    if (upgrade && 
+        !upgrade.owned && 
+        state.planktonPoints >= upgrade.cost &&
+        state.planktonPoints >= upgrade.unlockAt &&
+        state.currentEvolution >= upgrade.evolutionRequired) {
+      commit('INCREMENT_PLANKTON', -upgrade.cost)
       commit('BUY_UPGRADE', upgrade.id)
 
       if (upgrade.type === 'multiplier') {
         commit('SET_CLICK_VALUE', state.clickValue * upgrade.power)
-      } else if (upgrade.type === 'auto') {
-        commit('SET_AUTOCLICK_POWER', upgrade.power)
-        dispatch('startAutoClick')
+      } else if (upgrade.type === 'auto' || upgrade.type === 'reef') {
+        commit('SET_AUTOSWIM_POWER', upgrade.power)
+        dispatch('startAutoSwim')
       }
       
       dispatch('checkAchievements')
     }
   },
 
+  checkEvolution({ commit, state }) {
+    const evolutionThresholds = {
+      2: 1000,      // Small Fish
+      3: 10000,     // Medium Fish
+      4: 100000,    // Large Fish
+      5: 1000000    // Whale
+    }
+
+    for (const [level, threshold] of Object.entries(evolutionThresholds)) {
+      if (state.planktonPoints >= threshold && state.currentEvolution < level) {
+        commit('EVOLVE', parseInt(level))
+        // Could dispatch an event for evolution animation/notification
+      }
+    }
+  },
+
   activateBoost({ commit, state }, boostId) {
     const boost = state.boosts.find(b => b.id === boostId)
     if (boost && 
-        state.stimulation >= boost.cost && 
+        state.planktonPoints >= boost.cost && 
         !state.boostActive && 
         Date.now() >= state.boostCooldownEndTime) {
-      commit('INCREMENT_STIMULATION', -boost.cost)
+      commit('INCREMENT_PLANKTON', -boost.cost)
       commit('SET_BOOST', {
         active: true,
         multiplier: boost.multiplier,
@@ -198,10 +276,11 @@ export const actions = {
     }
   },
 
-  startAutoClick({ commit, state, dispatch }) {
+  startAutoSwim({ commit, state, dispatch }) {
     if (!this.intervalRef) {
       this.intervalRef = setInterval(() => {
-        commit('INCREMENT_STIMULATION', state.autoClickPower)
+        commit('INCREMENT_PLANKTON', state.autoSwimPower)
+        dispatch('checkEvolution')
         dispatch('checkAchievements')
         dispatch('checkBoostEnd')
       }, 1000)
