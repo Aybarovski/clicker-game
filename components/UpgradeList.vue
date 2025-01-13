@@ -1,490 +1,194 @@
 <template>
-  <div class="upgrade-list">
-    <div class="evolution-status">
-      <h2>Current Evolution: {{ getEvolutionName }}</h2>
-      <div class="evolution-progress">
-        <div class="progress-bar" :style="{ width: evolutionProgress + '%' }"></div>
-        <span class="progress-text">{{ evolutionProgress }}% to next stage</span>
-      </div>
-    </div>
-    
-    <!-- Basic Tier -->
-    <div class="tier-section">
-      <div class="tier-header">
-        <h3>Basic Upgrades</h3>
-        <span class="evolution-stage">Plankton Stage</span>
-      </div>
-      <div class="upgrade-grid">
-        <div
-          v-for="upgrade in availableBasicUpgrades"
-          :key="upgrade.id"
-          class="upgrade-item"
-          :class="{
-            'owned': upgrade.owned,
-            'can-buy': !upgrade.owned && canBuyUpgrade(upgrade)
-          }"
-        >
-          <div class="upgrade-header">
-            <h3>{{ upgrade.name }}</h3>
-            <span class="type-badge" :class="upgrade.type">
-              {{ getUpgradeTypeName(upgrade.type) }}
-            </span>
-          </div>
-          <p class="description">{{ upgrade.description }}</p>
-          <div class="upgrade-stats">
-            <p class="cost">
-              <span class="label">Cost:</span>
-              <span class="value">{{ upgrade.cost }} plankton</span>
-            </p>
-            <p class="power">
-              <span class="label">Power:</span>
-              <span class="value">{{ upgrade.power }}{{ upgrade.type === 'multiplier' ? 'x' : '/s' }}</span>
-            </p>
-          </div>
-          <div class="fun-fact" v-if="upgrade.fact">
-            <span class="fact-icon">🐠</span>
-            <p>{{ upgrade.fact }}</p>
-          </div>
-          <button
-            :disabled="upgrade.owned || !canBuyUpgrade(upgrade)"
-            @click="buyUpgrade(upgrade.id)"
-          >
-            {{ getButtonText(upgrade) }}
-          </button>
+  <div class="upgrades-container">
+    <div class="upgrades-list">
+      <div v-for="upgrade in upgrades" :key="upgrade.id" 
+           class="upgrade-item" 
+           :class="{ 'owned': upgrade.owned, 'can-buy': canBuyUpgrade(upgrade) }">
+        <div class="upgrade-icon" :class="upgrade.type">
+          <span v-if="upgrade.notification && canBuyUpgrade(upgrade)" class="notification"></span>
         </div>
-      </div>
-    </div>
-
-    <!-- Advanced Tier -->
-    <div class="tier-section">
-      <div class="tier-header">
-        <h3>Advanced Upgrades</h3>
-        <span class="evolution-stage">Small Fish Stage</span>
-        <span class="tier-unlock" v-if="!hasUnlockedTier(2)">
-          Unlocks at 500 plankton
-        </span>
-      </div>
-      <div v-if="hasUnlockedTier(2)" class="upgrade-grid">
-        <div
-          v-for="upgrade in availableAdvancedUpgrades"
-          :key="upgrade.id"
-          class="upgrade-item"
-          :class="{
-            'owned': upgrade.owned,
-            'can-buy': !upgrade.owned && canBuyUpgrade(upgrade)
-          }"
-        >
-          <div class="upgrade-header">
-            <h3>{{ upgrade.name }}</h3>
-            <span class="type-badge" :class="upgrade.type">
-              {{ getUpgradeTypeName(upgrade.type) }}
-            </span>
+        <div class="upgrade-info">
+          <h3>{{ upgrade.name }}</h3>
+          <p>{{ upgrade.description }}</p>
+          <div class="upgrade-cost">
+            Cost: {{ upgrade.cost }} stimulation
+            <span v-if="upgrade.tier > 1" class="tier-badge">Tier {{ upgrade.tier }}</span>
           </div>
-          <p class="description">{{ upgrade.description }}</p>
-          <div class="upgrade-stats">
-            <p class="cost">
-              <span class="label">Cost:</span>
-              <span class="value">{{ upgrade.cost }} plankton</span>
-            </p>
-            <p class="power">
-              <span class="label">Power:</span>
-              <span class="value">{{ upgrade.power }}{{ upgrade.type === 'multiplier' ? 'x' : '/s' }}</span>
-            </p>
-          </div>
-          <div class="fun-fact" v-if="upgrade.fact">
-            <span class="fact-icon">🐟</span>
-            <p>{{ upgrade.fact }}</p>
-          </div>
-          <button
-            :disabled="upgrade.owned || !canBuyUpgrade(upgrade)"
-            @click="buyUpgrade(upgrade.id)"
-          >
-            {{ getButtonText(upgrade) }}
-          </button>
         </div>
-      </div>
-      <div v-else class="locked-tier">
-        <p>Keep swimming to evolve into a bigger fish!</p>
-      </div>
-    </div>
-
-    <!-- Elite Tier -->
-    <div class="tier-section">
-      <div class="tier-header">
-        <h3>Elite Upgrades</h3>
-        <span class="evolution-stage">Large Fish Stage</span>
-        <span class="tier-unlock" v-if="!hasUnlockedTier(3)">
-          Unlocks at 2000 plankton
-        </span>
-      </div>
-      <div v-if="hasUnlockedTier(3)" class="upgrade-grid">
-        <div
-          v-for="upgrade in availableEliteUpgrades"
-          :key="upgrade.id"
-          class="upgrade-item"
-          :class="{
-            'owned': upgrade.owned,
-            'can-buy': !upgrade.owned && canBuyUpgrade(upgrade)
-          }"
-        >
-          <div class="upgrade-header">
-            <h3>{{ upgrade.name }}</h3>
-            <span class="type-badge" :class="upgrade.type">
-              {{ getUpgradeTypeName(upgrade.type) }}
-            </span>
-          </div>
-          <p class="description">{{ upgrade.description }}</p>
-          <div class="upgrade-stats">
-            <p class="cost">
-              <span class="label">Cost:</span>
-              <span class="value">{{ upgrade.cost }} plankton</span>
-            </p>
-            <p class="power">
-              <span class="label">Power:</span>
-              <span class="value">{{ upgrade.power }}{{ upgrade.type === 'multiplier' ? 'x' : '/s' }}</span>
-            </p>
-          </div>
-          <div class="fun-fact" v-if="upgrade.fact">
-            <span class="fact-icon">🐋</span>
-            <p>{{ upgrade.fact }}</p>
-          </div>
-          <button
-            :disabled="upgrade.owned || !canBuyUpgrade(upgrade)"
-            @click="buyUpgrade(upgrade.id)"
-          >
-            {{ getButtonText(upgrade) }}
-          </button>
-        </div>
-      </div>
-      <div v-else class="locked-tier">
-        <p>Keep growing to unlock the secrets of the deep!</p>
+        <button @click="buyUpgrade(upgrade.id)" 
+                :disabled="!canBuyUpgrade(upgrade) || upgrade.owned"
+                class="buy-button">
+          {{ upgrade.owned ? 'Owned' : 'Buy' }}
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script>
-import { mapState, mapActions } from 'vuex'
+import { mapState } from 'vuex'
 
 export default {
+  name: 'UpgradeList',
   computed: {
-    ...mapState('game', ['planktonPoints', 'upgrades', 'currentEvolution']),
-    availableBasicUpgrades() {
-      return this.upgrades.filter(u => u.tier === 1)
-    },
-    availableAdvancedUpgrades() {
-      return this.upgrades.filter(u => u.tier === 2)
-    },
-    availableEliteUpgrades() {
-      return this.upgrades.filter(u => u.tier === 3)
-    },
-    getEvolutionName() {
-      const names = {
-        1: 'Plankton',
-        2: 'Small Fish',
-        3: 'Medium Fish',
-        4: 'Large Fish',
-        5: 'Whale'
-      }
-      return names[this.currentEvolution] || 'Unknown'
-    },
-    evolutionProgress() {
-      const evolutionThresholds = {
-        1: { next: 1000 },    // To Small Fish
-        2: { next: 10000 },   // To Medium Fish
-        3: { next: 100000 },  // To Large Fish
-        4: { next: 1000000 }, // To Whale
-        5: { next: Infinity } // Final form
-      }
-      
-      const current = evolutionThresholds[this.currentEvolution]
-      if (!current || this.currentEvolution >= 5) return 100
-      
-      const progress = (this.planktonPoints / current.next) * 100
-      return Math.min(Math.round(progress), 100)
-    }
+    ...mapState({
+      upgrades: state => state.game.upgrades,
+      stimulation: state => state.game.stimulation
+    })
   },
   methods: {
-    ...mapActions('game', ['buyUpgrade']),
-    hasUnlockedTier(tier) {
-      const tierThresholds = {
-        2: 500,
-        3: 2000
-      }
-      return this.planktonPoints >= tierThresholds[tier]
-    },
     canBuyUpgrade(upgrade) {
-      return !upgrade.owned && 
-             this.planktonPoints >= upgrade.cost && 
-             this.currentEvolution >= upgrade.evolutionRequired
+      return !upgrade.owned && this.stimulation >= upgrade.cost
     },
-    getButtonText(upgrade) {
-      if (upgrade.owned) {
-        return 'Owned'
-      }
-      if (this.currentEvolution < upgrade.evolutionRequired) {
-        return `Requires ${this.getEvolutionName(upgrade.evolutionRequired)}`
-      }
-      if (this.planktonPoints < upgrade.cost) {
-        return 'Not enough plankton'
-      }
-      return 'Buy'
-    },
-    getUpgradeTypeName(type) {
-      const types = {
-        'auto': 'Auto-Swimmer',
-        'multiplier': 'Multiplier',
-        'reef': 'Coral Reef'
-      }
-      return types[type] || type
+    buyUpgrade(upgradeId) {
+      this.$store.dispatch('game/buyUpgrade', upgradeId)
     }
   }
 }
 </script>
 
 <style scoped>
-.upgrade-list {
-  margin: 20px 0;
+.upgrades-container {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 1rem;
 }
 
-.evolution-status {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 20px;
-  border-radius: 12px;
-  margin-bottom: 30px;
-  text-align: center;
-}
-
-.evolution-progress {
-  background: rgba(255, 255, 255, 0.1);
-  height: 20px;
-  border-radius: 10px;
-  position: relative;
-  overflow: hidden;
-  margin-top: 15px;
-}
-
-.progress-bar {
-  background: linear-gradient(90deg, #4fc3f7, #2196f3);
-  height: 100%;
-  transition: width 0.3s ease;
-}
-
-.progress-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: white;
-  font-size: 0.8em;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-}
-
-.tier-section {
-  margin-bottom: 30px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  padding: 20px;
-}
-
-.tier-header {
+.upgrades-list {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-
-.tier-header h3 {
-  color: #e1bee7;
-  font-size: 1.3em;
-  margin: 0;
-}
-
-.evolution-stage {
-  background: rgba(33, 150, 243, 0.2);
-  color: #90caf9;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.9em;
-}
-
-.tier-unlock {
-  color: #ff9800;
-  font-size: 0.9em;
-}
-
-.upgrade-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 15px;
+  flex-direction: column;
+  gap: 1rem;
 }
 
 .upgrade-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  padding: 15px;
-  text-align: left;
   transition: all 0.3s ease;
-  border: 2px solid transparent;
-  backdrop-filter: blur(10px);
 }
 
-.upgrade-header {
+.upgrade-item:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.upgrade-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
-}
-
-.upgrade-header h3 {
-  margin: 0;
-  color: white;
-  font-size: 1.1em;
-}
-
-.type-badge {
-  font-size: 0.8em;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-weight: bold;
-}
-
-.type-badge.auto {
-  background: rgba(144, 202, 249, 0.2);
-  color: #90caf9;
-}
-
-.type-badge.multiplier {
-  background: rgba(244, 143, 177, 0.2);
-  color: #f48fb1;
-}
-
-.type-badge.reef {
-  background: rgba(129, 199, 132, 0.2);
-  color: #81c784;
-}
-
-.upgrade-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 10px 0;
-}
-
-.upgrade-item.owned {
-  background: rgba(76, 175, 80, 0.2);
-  border-color: #81c784;
-}
-
-.upgrade-item.can-buy {
-  border-color: #64b5f6;
-}
-
-.description {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 0.9em;
-  margin: 10px 0;
-  min-height: 2.7em;
-}
-
-.fun-fact {
+  justify-content: center;
+  position: relative;
   background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  padding: 10px;
-  margin: 10px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
 }
 
-.fact-icon {
-  font-size: 1.2em;
+.upgrade-icon.dvd::before { content: '💿'; }
+.upgrade-icon.cursor::before { content: '👆'; }
+.upgrade-icon.multiplier::before { content: '⚡'; }
+.upgrade-icon.person::before { content: '👥'; }
+.upgrade-icon.cloud::before { content: '☁️'; }
+
+.notification {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  background: #ff4081;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
 }
 
-.fun-fact p {
+.upgrade-info {
+  flex: 1;
+}
+
+.upgrade-info h3 {
   margin: 0;
-  font-size: 0.85em;
-  color: rgba(255, 255, 255, 0.9);
-  font-style: italic;
+  font-size: 1.1rem;
+  color: #fff;
 }
 
-.cost, .power {
-  margin: 0;
+.upgrade-info p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.upgrade-cost {
+  font-size: 0.9rem;
+  color: #64b5f6;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.label {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.8em;
-  margin-bottom: 2px;
+.tier-badge {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  color: #fff;
 }
 
-.value {
-  color: #ff9800;
-  font-weight: bold;
-}
-
-.power .value {
-  color: #f48fb1;
-}
-
-button {
-  width: 100%;
-  padding: 8px 16px;
+.buy-button {
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
-  background-color: #4caf50;
+  background: #2196f3;
   color: white;
   cursor: pointer;
   transition: all 0.3s ease;
-  margin-top: 10px;
-  font-weight: bold;
 }
 
-button:hover:not(:disabled) {
-  background-color: #43a047;
-  transform: scale(1.02);
+.buy-button:hover:not(:disabled) {
+  background: #1976d2;
+  transform: scale(1.05);
 }
 
-button:disabled {
-  background-color: rgba(204, 204, 204, 0.3);
+.buy-button:disabled {
+  background: #ccc;
   cursor: not-allowed;
 }
 
-.upgrade-item.owned button {
-  background-color: #81c784;
+.owned .buy-button {
+  background: #4caf50;
 }
 
-.locked-tier {
-  text-align: center;
-  padding: 20px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.6);
+.can-buy .buy-button {
+  animation: glow 2s infinite;
 }
 
-/* Mobile-specific styles */
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes glow {
+  0% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(33, 150, 243, 0.8); }
+  100% { box-shadow: 0 0 5px rgba(33, 150, 243, 0.5); }
+}
+
 @media (max-width: 768px) {
-  .upgrade-grid {
-    grid-template-columns: 1fr;
-  }
-
   .upgrade-item {
-    padding: 20px;
-  }
-
-  button {
-    padding: 12px 20px;
-    font-size: 16px;
-  }
-  
-  .tier-header {
     flex-direction: column;
     text-align: center;
-    gap: 5px;
+  }
+  
+  .upgrade-icon {
+    margin: 0 auto;
+  }
+  
+  .buy-button {
+    width: 100%;
+    padding: 1rem;
+    margin-top: 0.5rem;
   }
 }
 </style> 

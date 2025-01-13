@@ -1,95 +1,86 @@
 <template>
-  <div class="ocean-container">
-    <OceanBackground />
-    <OceanParticles ref="particles" />
-    
-    <div class="game-content">
-      <!-- Evolution Status -->
-      <div class="status-panel">
-        <PlayerFish ref="playerFish" class="player-character" />
-        <div class="stats">
-          <h1>
-            <span class="title-icon">🌊</span>
-            Ocean Explorer
-            <span class="title-icon">🐋</span>
-          </h1>
-          <p class="plankton-count">
-            <span class="resource-icon">🦐</span>
-            {{ planktonPoints }} Plankton
-          </p>
-          <p class="click-power">
-            <span class="stat-icon">💪</span>
-            Power: {{ clickValue }} per click
-          </p>
-          <p class="auto-power" v-if="autoSwimPower > 0">
-            <span class="stat-icon">🌊</span>
-            Auto-Swim: {{ autoSwimPower }} per second
-          </p>
-        </div>
+  <div class="game-container">
+    <!-- Sound Effects -->
+    <SoundEffects ref="soundEffects" />
+
+    <!-- Achievement Notification -->
+    <AchievementNotification 
+      :show="showNotification"
+      :achievement="lastAchievement"
+    />
+
+    <!-- Upgrades Modal -->
+    <UpgradesModal
+      :show="showUpgradesModal"
+      :upgrades="upgrades"
+      :totalClicks="totalClicks"
+      @close="showUpgradesModal = false"
+    />
+
+    <!-- Achievements Modal -->
+    <AchievementsModal
+      :show="showAchievementsModal"
+      :achievements="achievements"
+      :stimulation="stimulation"
+      :totalClicks="totalClicks"
+      :upgrades="upgrades"
+      @close="showAchievementsModal = false"
+    />
+
+    <!-- Stats -->
+    <div class="stats-container">
+      <div class="stimulation-count">{{ stimulation }} stimulation</div>
+      <div class="rate-count">{{ autoClickPower }} stimulation per second</div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="nav-buttons">
+      <button class="nav-btn" 
+              @click="showUpgradesModal = true"
+              :class="{ 'pop': showUpgradesPop }">
+        <span class="icon">⚡</span>
+        Upgrades
+        <span v-if="hasNewUpgrades" class="notification-dot"></span>
+      </button>
+      <button class="nav-btn" 
+              @click="showAchievementsModal = true"
+              :class="{ 'pop': showAchievementsPop }">
+        <span class="icon">🏆</span>
+        Achievements
+        <span v-if="hasNewAchievements" class="notification-dot"></span>
+      </button>
+    </div>
+
+    <!-- Main Click Area -->
+    <div class="click-area">
+      <button 
+        class="click-button" 
+        :class="{ 'clicking': isClicking }" 
+        @click="handleClick"
+      >
+        Click me!
+      </button>
+    </div>
+
+    <!-- Available Upgrades -->
+    <div class="upgrades-section">
+      <div v-if="getUnlockMessage()" class="unlock-message">
+        {{ getUnlockMessage() }}
       </div>
-
-      <!-- Main Click Area -->
-      <div class="click-area" @click="handleClick">
-        <div class="ocean-depth-marker">Depth: {{ currentDepth }}m</div>
-        <div class="click-button" :class="{ 'clicking': isClicking }">
-          <span class="button-icon">🌊</span>
-          <span class="button-text">Swim & Collect</span>
-          <div class="ripple-container" v-if="showRipple">
-            <div class="ripple" v-for="(ripple, index) in ripples" 
-                 :key="index"
-                 :style="ripple.style">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Boosts Section -->
-      <div class="boosts-panel">
-        <h2>Power Boosts</h2>
-        <div class="boost-buttons">
-          <button
-            v-for="boost in boosts"
-            :key="boost.id"
-            class="boost-button"
-            :class="{ 'active': isBoostActive(boost.id) }"
-            :disabled="!canActivateBoost(boost)"
-            @click="activateBoost(boost.id)"
-          >
-            <div class="boost-info">
-              <h3>{{ boost.name }}</h3>
-              <p>{{ boost.description }}</p>
-              <p class="boost-cost">Cost: {{ boost.cost }} plankton</p>
-            </div>
-            <div class="boost-timer" v-if="isBoostActive(boost.id)">
-              {{ getBoostTimeLeft(boost.id) }}s
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Upgrades Section -->
-      <UpgradeList class="upgrades-section" />
-
-      <!-- Achievements Panel -->
-      <div class="achievements-panel">
-        <h2>Ocean Discoveries</h2>
-        <div class="achievements-grid">
-          <div
-            v-for="achievement in achievements"
-            :key="achievement.id"
-            class="achievement-card"
-            :class="{ 'unlocked': achievement.unlocked }"
-          >
-            <div class="achievement-icon">
-              {{ getAchievementIcon(achievement) }}
-            </div>
-            <div class="achievement-info">
-              <h3>{{ achievement.name }}</h3>
-              <p>{{ achievement.description }}</p>
-              <p class="achievement-fact" v-if="achievement.unlocked">
-                {{ achievement.fact }}
-              </p>
-            </div>
+      <div class="upgrades-row" :class="{ 'empty': visibleUpgrades.length === 0 }">
+        <div v-for="upgrade in visibleUpgrades" 
+             :key="upgrade.id" 
+             class="upgrade-icon"
+             :class="{ 'can-buy': canBuyUpgrade(upgrade) }"
+             @click="buyUpgrade(upgrade.id)"
+             @mouseover="showTooltip(upgrade)"
+             @mouseleave="hideTooltip">
+          <div v-if="upgrade.notification" class="notification">1</div>
+          <img :src="getUpgradeIcon(upgrade)" :alt="upgrade.name">
+          <div v-if="selectedUpgrade === upgrade" class="tooltip">
+            <h3>{{ upgrade.name }}</h3>
+            <p>{{ upgrade.description }}</p>
+            <p class="cost">Cost: {{ upgrade.cost }} stimulation</p>
           </div>
         </div>
       </div>
@@ -97,346 +88,258 @@
   </div>
 </template>
 
-<script>
-import { mapState, mapActions } from 'vuex'
-import OceanBackground from '~/components/OceanBackground.vue'
-import OceanParticles from '~/components/OceanParticles.vue'
-import PlayerFish from '~/components/PlayerFish.vue'
-import UpgradeList from '~/components/UpgradeList.vue'
-
-export default {
-  components: {
-    OceanBackground,
-    OceanParticles,
-    PlayerFish,
-    UpgradeList
-  },
-  data() {
-    return {
-      isClicking: false,
-      showRipple: false,
-      ripples: [],
-      rippleCount: 0,
-      boostInterval: null
-    }
-  },
-  computed: {
-    ...mapState('game', [
-      'planktonPoints',
-      'clickValue',
-      'autoSwimPower',
-      'boosts',
-      'boostActive',
-      'boostEndTime',
-      'boostCooldownEndTime',
-      'achievements',
-      'currentEvolution'
-    ]),
-    currentDepth() {
-      const baseDepth = Math.floor(Math.log10(this.planktonPoints + 1) * 100)
-      return baseDepth > 0 ? baseDepth : 0
-    }
-  },
-  methods: {
-    ...mapActions('game', ['increment', 'activateBoost']),
-    handleClick() {
-      this.increment()
-      this.isClicking = true
-      this.$refs.playerFish.swim()
-      this.createRipple(event)
-      
-      const rect = event.currentTarget.getBoundingClientRect()
-      const x = event.clientX - rect.left
-      const y = event.clientY - rect.top
-      
-      const colors = ['#90caf9', '#64b5f6', '#42a5f5', '#2196f3', '#1976d2']
-      const color = colors[this.currentEvolution - 1] || colors[0]
-      const particleCount = 10 + (this.currentEvolution * 5)
-      
-      this.$refs.particles.createBurst(x, y, color, particleCount)
-      
-      setTimeout(() => {
-        this.isClicking = false
-      }, 100)
-    },
-    createRipple(event) {
-      const button = event.currentTarget
-      const rect = button.getBoundingClientRect()
-      const size = Math.max(rect.width, rect.height)
-      const x = event.clientX - rect.left - size / 2
-      const y = event.clientY - rect.top - size / 2
-
-      const ripple = {
-        id: this.rippleCount++,
-        style: {
-          width: `${size}px`,
-          height: `${size}px`,
-          left: `${x}px`,
-          top: `${y}px`
-        }
-      }
-
-      this.ripples.push(ripple)
-      this.showRipple = true
-
-      setTimeout(() => {
-        this.ripples = this.ripples.filter(r => r.id !== ripple.id)
-        if (this.ripples.length === 0) {
-          this.showRipple = false
-        }
-      }, 1000)
-    },
-    isBoostActive(boostId) {
-      return this.boostActive && this.boosts.find(b => b.id === boostId)
-    },
-    canActivateBoost(boost) {
-      return this.planktonPoints >= boost.cost && 
-             Date.now() >= this.boostCooldownEndTime
-    },
-    getBoostTimeLeft(boostId) {
-      if (!this.boostActive) return 0
-      const timeLeft = Math.max(0, Math.ceil((this.boostEndTime - Date.now()) / 1000))
-      return timeLeft
-    },
-    getAchievementIcon(achievement) {
-      const icons = {
-        tinyFish: '🐠',
-        reefRuler: '🏰',
-        humpbackHero: '🐋',
-        whaleWatcher: '👑',
-        oceanCleaner: '🌊'
-      }
-      return icons[achievement.id] || '🎯'
-    }
-  },
-  mounted() {
-    // Update boost timers
-    this.boostInterval = setInterval(() => {
-      if (this.boostActive) {
-        this.$forceUpdate()
-      }
-    }, 1000)
-  },
-  beforeDestroy() {
-    if (this.boostInterval) {
-      clearInterval(this.boostInterval)
-    }
-  }
-}
-</script>
-
 <style scoped>
-.ocean-container {
+.game-container {
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   padding: 20px;
-  color: white;
+  background: #fff;
 }
 
-.game-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  position: relative;
-  z-index: 1;
+.stats-container {
+  text-align: center;
+  margin: 20px 0;
 }
 
-.status-panel {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
-  padding: 20px;
+.stimulation-count {
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.rate-count {
+  font-size: 18px;
+  color: #666;
+}
+
+.nav-buttons {
+  display: flex;
+  gap: 15px;
   margin-bottom: 20px;
+}
+
+.nav-btn {
+  position: relative;
+  padding: 10px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.3s ease;
   display: flex;
   align-items: center;
-  gap: 20px;
-  backdrop-filter: blur(10px);
+  gap: 8px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.player-character {
-  flex-shrink: 0;
+.nav-btn .icon {
+  font-size: 20px;
 }
 
-.stats {
-  flex-grow: 1;
-}
-
-.stats h1 {
-  margin: 0 0 10px 0;
-  font-size: 2em;
-  background: linear-gradient(45deg, #64b5f6, #2196f3);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.plankton-count {
-  font-size: 1.5em;
-  font-weight: bold;
-  color: #ff9800;
-  margin: 5px 0;
-}
-
-.click-power, .auto-power {
-  color: rgba(255, 255, 255, 0.8);
-  margin: 5px 0;
-}
-
-.click-area {
-  text-align: center;
-  margin: 30px 0;
-}
-
-.click-button {
-  display: inline-block;
-  padding: 20px 40px;
-  font-size: 1.2em;
-  background: linear-gradient(45deg, #2196f3, #1976d2);
-  border: none;
-  border-radius: 50px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
-}
-
-.click-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.4);
-}
-
-.clicking {
-  transform: scale(0.95);
-}
-
-.ripple-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
-.ripple {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
-  transform: scale(0);
-  animation: ripple 1s linear;
-}
-
-@keyframes ripple {
-  to {
-    transform: scale(4);
-    opacity: 0;
-  }
-}
-
-.boosts-panel {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-  backdrop-filter: blur(10px);
-}
-
-.boost-buttons {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.boost-button {
-  background: rgba(33, 150, 243, 0.2);
-  border: 2px solid #2196f3;
-  border-radius: 8px;
-  padding: 15px;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.boost-button:hover:not(:disabled) {
-  background: rgba(33, 150, 243, 0.3);
+.nav-btn:hover {
+  background: #e0e0e0;
   transform: translateY(-2px);
 }
 
-.boost-button.active {
-  background: rgba(76, 175, 80, 0.3);
-  border-color: #4caf50;
+.nav-btn.active {
+  background: #2196f3;
+  color: white;
 }
 
-.boost-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.nav-btn.pop {
+  animation: pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-.boost-info h3 {
-  margin: 0 0 5px 0;
+.notification-dot {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 10px;
+  height: 10px;
+  background: #ff4081;
+  border-radius: 50%;
+  animation: pulse 2s infinite;
 }
 
-.boost-info p {
-  margin: 5px 0;
-  font-size: 0.9em;
-  opacity: 0.8;
+@keyframes pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
-.boost-cost {
-  color: #ff9800;
-  font-weight: bold;
+@keyframes pulse {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
 }
 
-.boost-timer {
-  margin-top: 10px;
-  font-weight: bold;
-  color: #4caf50;
-}
-
-.achievements-panel {
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
-  padding: 20px;
-  margin: 20px 0;
-  backdrop-filter: blur(10px);
-}
-
-.achievements-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 15px;
-  margin-top: 15px;
-}
-
-.achievement-card {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  padding: 15px;
+.click-area {
   display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 40px 0;
+}
+
+.click-button {
+  padding: 20px 40px;
+  font-size: 24px;
+  border: none;
+  border-radius: 8px;
+  background: #2196f3;
+  color: white;
+  cursor: pointer;
+  transition: transform 0.1s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.click-button:hover {
+  background: #1976d2;
+}
+
+.click-button.clicking {
+  transform: scale(0.95);
+}
+
+.upgrades-section {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 15px;
-  opacity: 0.7;
-  filter: grayscale(1);
+}
+
+.unlock-message {
+  text-align: center;
+  color: #666;
+  font-size: 16px;
+  padding: 10px 20px;
+  background: rgba(33, 150, 243, 0.1);
+  border-radius: 8px;
+  animation: pulse 2s infinite;
+}
+
+.upgrades-row {
+  display: flex;
+  gap: 20px;
+  min-height: 64px;
   transition: all 0.3s ease;
 }
 
-.achievement-card.unlocked {
-  opacity: 1;
-  filter: none;
-  background: rgba(76, 175, 80, 0.2);
+.upgrades-row.empty {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 8px;
+  padding: 20px;
+  justify-content: center;
+  align-items: center;
 }
 
-.achievement-icon {
-  font-size: 2em;
-  width: 50px;
-  height: 50px;
+.upgrade-icon {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.upgrade-icon:hover {
+  transform: translateY(-2px);
+}
+
+.upgrade-icon.can-buy {
+  background: #e3f2fd;
+}
+
+.notification {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #f44336;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.2);
+  font-size: 12px;
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  border: 1px solid #ddd;
   border-radius: 8px;
+  padding: 10px;
+  width: 200px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 100;
+  margin-bottom: 10px;
+  pointer-events: none;
+}
+
+.tooltip h3 {
+  margin: 0 0 5px 0;
+  font-size: 16px;
+}
+
+.tooltip p {
+  margin: 5px 0;
+  font-size: 14px;
+}
+
+.tooltip .cost {
+  color: #f44336;
+  font-weight: bold;
+}
+
+.upgrade-icon img {
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+}
+
+.achievements-list {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 20px;
+}
+
+.achievement-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 15px;
+  background: #f5f5f5;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  opacity: 0.7;
+}
+
+.achievement-item.unlocked {
+  background: #e8f5e9;
+  opacity: 1;
+}
+
+.achievement-icon {
+  font-size: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .achievement-info {
-  flex-grow: 1;
+  flex: 1;
 }
 
 .achievement-info h3 {
@@ -444,145 +347,134 @@ export default {
 }
 
 .achievement-info p {
-  margin: 5px 0;
-  font-size: 0.9em;
-  opacity: 0.8;
+  margin: 0;
+  font-size: 14px;
+  color: #666;
 }
 
-.achievement-fact {
-  font-style: italic;
-  color: #81d4fa;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding-top: 5px;
-  margin-top: 10px;
+.reward {
+  color: #4caf50 !important;
+  font-weight: bold;
+  margin-top: 5px !important;
 }
+</style>
 
-.title-icon {
-  font-size: 0.8em;
-  vertical-align: middle;
-  margin: 0 5px;
-}
+<script>
+import { mapState, mapActions, mapGetters } from 'vuex'
+import AchievementNotification from '~/components/AchievementNotification.vue'
+import UpgradesModal from '~/components/UpgradesModal.vue'
+import AchievementsModal from '~/components/AchievementsModal.vue'
+import SoundEffects from '~/components/SoundEffects.vue'
 
-.resource-icon,
-.stat-icon {
-  display: inline-block;
-  margin-right: 8px;
-  font-size: 1.2em;
-  vertical-align: middle;
-}
+export default {
+  components: {
+    AchievementNotification,
+    UpgradesModal,
+    AchievementsModal,
+    SoundEffects
+  },
+  data() {
+    return {
+      isClicking: false,
+      selectedUpgrade: null,
+      showUpgradesModal: false,
+      showAchievementsModal: false,
+      showUpgradesPop: false,
+      showAchievementsPop: false,
+      showNotification: false,
+      lastAchievement: null,
+      notificationTimeout: null
+    }
+  },
+  computed: {
+    ...mapState('game', [
+      'stimulation',
+      'autoClickPower',
+      'upgrades',
+      'achievements',
+      'totalClicks'
+    ]),
+    ...mapGetters('game', ['visibleUpgradesCount']),
+    visibleUpgrades() {
+      return this.upgrades.slice(0, this.visibleUpgradesCount)
+    },
+    hasNewUpgrades() {
+      return this.upgrades.some(u => !u.owned && this.stimulation >= u.cost)
+    },
+    hasNewAchievements() {
+      return this.achievements.some(a => !a.unlocked && this.isAchievementNearlyComplete(a))
+    }
+  },
+  mounted() {
+    window.addEventListener('achievementUnlocked', this.handleAchievementUnlock)
+  },
+  beforeDestroy() {
+    window.removeEventListener('achievementUnlocked', this.handleAchievementUnlock)
+    if (this.notificationTimeout) {
+      clearTimeout(this.notificationTimeout)
+    }
+  },
+  methods: {
+    ...mapActions('game', ['increment', 'buyUpgrade']),
+    handleClick() {
+      this.increment()
+      this.isClicking = true
+      // Play click sound
+      this.$refs.soundEffects?.playClickSound()
+      setTimeout(() => {
+        this.isClicking = false
+      }, 100)
+    },
+    showTooltip(upgrade) {
+      this.selectedUpgrade = upgrade
+    },
+    hideTooltip() {
+      this.selectedUpgrade = null
+    },
+    canBuyUpgrade(upgrade) {
+      return this.stimulation >= upgrade.cost && !upgrade.owned
+    },
+    getUpgradeIcon(upgrade) {
+      const icons = {
+        'dvd': require('~/assets/dvd-logo.svg'),
+        'cursor': require('~/assets/cursor.svg'),
+        'multiplier': require('~/assets/plus.svg'),
+        'person': require('~/assets/person.svg'),
+        'cloud': require('~/assets/cloud.svg')
+      }
+      return icons[upgrade.type] || icons.dvd
+    },
+    handleAchievementUnlock(event) {
+      if (this.notificationTimeout) {
+        clearTimeout(this.notificationTimeout)
+        this.showNotification = false
+      }
 
-.ocean-depth-marker {
-  position: absolute;
-  right: 20px;
-  top: -30px;
-  background: rgba(0, 0, 0, 0.3);
-  padding: 5px 15px;
-  border-radius: 20px;
-  font-size: 0.9em;
-  backdrop-filter: blur(5px);
-}
-
-.click-button {
-  background: linear-gradient(45deg, #2196f3, #1976d2);
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3),
-              inset 0 0 20px rgba(255, 255, 255, 0.1);
-}
-
-.button-icon {
-  display: inline-block;
-  margin-right: 10px;
-  font-size: 1.2em;
-  vertical-align: middle;
-  animation: wave 2s infinite;
-}
-
-@keyframes wave {
-  0%, 100% {
-    transform: rotate(-10deg);
-  }
-  50% {
-    transform: rotate(10deg);
-  }
-}
-
-.achievement-card {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(10px);
-}
-
-.achievement-card.unlocked {
-  background: linear-gradient(135deg, 
-    rgba(76, 175, 80, 0.2),
-    rgba(129, 199, 132, 0.2)
-  );
-  border-color: rgba(129, 199, 132, 0.3);
-  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.2);
-}
-
-.status-panel,
-.boosts-panel,
-.achievements-panel {
-  position: relative;
-  overflow: hidden;
-}
-
-.status-panel::after,
-.boosts-panel::after,
-.achievements-panel::after {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: linear-gradient(
-    45deg,
-    transparent,
-    rgba(255, 255, 255, 0.1),
-    transparent
-  );
-  transform: rotate(45deg);
-  animation: shine 10s infinite;
-}
-
-@keyframes shine {
-  0% {
-    transform: translateX(-100%) rotate(45deg);
-  }
-  20%, 100% {
-    transform: translateX(100%) rotate(45deg);
-  }
-}
-
-/* Mobile Styles */
-@media (max-width: 768px) {
-  .ocean-container {
-    padding: 10px;
-  }
-
-  .status-panel {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .click-button {
-    width: 100%;
-    max-width: 300px;
-  }
-
-  .achievements-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ocean-depth-marker {
-    position: relative;
-    top: 0;
-    right: 0;
-    margin-bottom: 10px;
-    text-align: center;
+      this.lastAchievement = event.detail.achievement
+      this.$nextTick(() => {
+        this.showNotification = true
+        this.notificationTimeout = setTimeout(() => {
+          this.showNotification = false
+        }, 3000)
+      })
+    },
+    isAchievementNearlyComplete(achievement) {
+      const conditions = {
+        firstDVD: () => this.stimulation >= 80,
+        collector: () => this.upgrades.filter(u => u.owned).length >= 2,
+        enthusiast: () => this.stimulation >= 800,
+        hoarder: () => this.stimulation >= 8000,
+        clickMaster: () => this.totalClicks >= 800
+      }
+      return conditions[achievement.id] ? conditions[achievement.id]() : false
+    },
+    getUnlockMessage() {
+      if (this.totalClicks < 10) return 'Click 10 times to unlock your first upgrade!'
+      if (this.totalClicks < 15) return 'Click 5 more times to unlock another upgrade!'
+      if (this.totalClicks < 25) return 'Click until 25 to unlock more upgrades!'
+      if (this.totalClicks < 50) return 'Almost there! 50 clicks will unlock all upgrades!'
+      return ''
+    }
   }
 }
-</style> 
+</script> 
